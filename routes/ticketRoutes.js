@@ -10,11 +10,15 @@ router.route('/')
 
 router.get('/total',ticketController.getTotalTickets)
 
+router.route('/dashboard')
+.get(ticketController.dashboardData)
+
 router.route('/:id')
 .get(ticketController.getTicketID)
 .post(ticketController.updateTicket)
 
 router.route('/user/:user_id')
 .get(ticketController.getDevTickets)
+
 
 export default router

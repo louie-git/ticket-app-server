@@ -1,5 +1,6 @@
 import Ticket from '../models/TicketModel.js'
 import mongoose from 'mongoose';
+import { priorityCond, statusCond } from '../general/dbMethods.js';
 
 async function getTickets(req,res){
 
@@ -43,6 +44,14 @@ console.log(req.query.status)
       as: 'submitted_by'
     }
   }
+  const lookupCategory = {
+    $lookup: {
+      from: 'categories',
+      localField: 'category',
+      foreignField: 'key',
+      as: 'category'
+    }
+  }
 
   const unwindOpt = {
     $unwind: {
@@ -51,14 +60,19 @@ console.log(req.query.status)
     }
   }
 
+  const unwindCategory = {
+    $unwind : {
+      path: '$category',
+      preserveNullAndEmptyArrays: true
+    }
+  }
+
   const projectOpt = {
     $project: {
       '_id': 1,
       "ticket_number": 1,
-      "category": 1,
+      "category": '$category.name',
       "description": 1,
-      "status": 1,
-      "priority": 1,
       "createdAt": {
         $dateToString : {
           format: "%Y-%m-%d", date: "$createdAt"
@@ -68,7 +82,9 @@ console.log(req.query.status)
         "full_name": {$concat : ['$submitted_by.first_name', " ", "$submitted_by.last_name"]},
         'email': 1,
         "designation": 1
-      },
+      },  
+      "priority": priorityCond,
+      "status": statusCond
     },
   }
 
@@ -76,12 +92,13 @@ console.log(req.query.status)
 
   const limitOpt = { $limit: limit }
 
-  const pipeline = [lookupOpt, unwindOpt, projectOpt]
+  const pipeline = [lookupOpt, lookupCategory, unwindOpt, unwindCategory]
 
   //Push Match Operator when arrAndOptFilter is not empyty
   arrAndOptFilters.length && pipeline.push(matchOpt) 
 
 
+  pipeline.push(projectOpt)
   //Fetch data count before applying limit and skip
   const total_tickets = (await Ticket.aggregate(pipeline)).length
   pipeline.push(skipOpt,limitOpt)
@@ -101,6 +118,7 @@ async function getTotalTickets (req,res) {
 }
 
 async function postTicket (req,res) {
+  return res.status(400).send({message: 'Error while uploading'})
   try {
     //creates the leading '000' in the ticket Number
     const ticketCount = await Ticket.find({}).count()
@@ -109,7 +127,7 @@ async function postTicket (req,res) {
     
     const ticket = new Ticket({
       ticket_number,
-      category: 2,
+      category: req.body.category,
       description: req.body.description,
       submitted_by: new mongoose.Types.ObjectId('668bd0c28a525beeaf38c760')
     })
@@ -211,8 +229,86 @@ const getDevTickets = async (req, res) => {
  } catch (error) {
   console.log(error)
   res.status(400).json({message: 'Error while fetching'})
-  
  }
+}
+
+
+const dashboardData = async (req,res) => {
+
+
+  const completedMatchOpt =   { $match: {'status' : 3} }
+  const inprogressMatchOpt =   { $match: {'status' : 2} }
+
+  const sortOpt = { $sort : {"updatedAt" : -1}}
+  const limitOpt = { $limit : 5}
+  const lookUpOpt = {
+    $lookup : {
+      from: 'users',
+      localField: 'submitted_by',
+      foreignField: '_id',
+      as: 'submitted_by'
+    }
+  }
+  const unwindOpt = {
+    $unwind: {
+      path: '$submitted_by',
+      preserveNullAndEmptyArrays: true
+    }
+  }
+
+  const projectOpt = {
+    $project: {
+      "ticket_number": 1,
+      "submitted_by": 1,
+      "submitted_by": {
+        "full_name" : { $concat : ['$submitted_by.first_name', " ", "$submitted_by.last_name"] }
+      },
+      "priority" : priorityCond,
+    }
+  }
+
+  const completedPipeline = [completedMatchOpt,sortOpt, limitOpt, lookUpOpt, unwindOpt, projectOpt]
+  const inprogressPipeline = [inprogressMatchOpt,sortOpt, limitOpt, lookUpOpt, unwindOpt, projectOpt]
+
+  try{
+
+    const completedTickets = await Ticket.aggregate(completedPipeline)
+    const inprogressTickets = await Ticket.aggregate(inprogressPipeline)
+
+
+    const tickets = await Ticket.aggregate([
+      {
+        $group: {
+          "_id": statusCond,
+          "count" : {$sum: 1},
+        }
+      },
+      {
+        $unwind: {
+          path: "$_id",
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    ])
+
+    const ticketCount = {}
+    tickets.forEach(ticket => ticketCount[`${ticket._id}`] = ticket.count )
+
+    console.log(ticketCount['In-progress'])
+    //  setTimeout(()=> {
+      res.send({
+        completed: completedTickets, 
+        inprogress: inprogressTickets, 
+        completed_count: ticketCount['Completed'],
+        pending_count: ticketCount['Pending'],
+        inprogress_count: ticketCount['In-progress'],
+        total_tickets: ticketCount['Completed'] + ticketCount['Pending'] + ticketCount['In-progress']
+      })
+    // }, 3000)
+
+  } catch (error) {
+    console.log(error)
+  }
 }
 
 export  {
@@ -221,5 +317,6 @@ export  {
   postTicket,
   getTicketID,
   updateTicket,
-  getDevTickets
+  getDevTickets,
+  dashboardData
 }

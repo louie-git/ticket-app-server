@@ -58,16 +58,30 @@ async function createUser (req, res) {
 
 
 async function getUserById (req,res) {
+  console.log(req.query)
+
+
 
   const limit = 5
   const page = req.query.page ? req.query.page : 1
   const id =  Types.ObjectId.createFromHexString(req.params.id)
-  console.log()
+  const objStatusFilter = {"status": parseInt(req.query.status)}
+  const objPrioFilter = {"priority": parseInt(req.query.priority)}
+  const objDevId = {"_id": id}
+
+
+  const arrAndOptFilters = []
+
+  arrAndOptFilters.push({"assignee": { $in: [id]}})
+
+  if (req.query.status && req.query.status !== 'All')  arrAndOptFilters.push(objStatusFilter)
+  if ( req.query.priority && req.query.priority !== 'All')  arrAndOptFilters.push(objPrioFilter)
+    
   try {
     const user = await User.aggregate( [
       {
         $match: { 
-            "_id" : id
+            "_id": id
         },
       },
       {
@@ -81,14 +95,50 @@ async function getUserById (req,res) {
     ]).then(data => data[0])
 
 
-
     const pipeline = [    
       { 
         $match: {
-        "assignee" : {$in: [id]}
+          $and: [...arrAndOptFilters]
         }
       },
-
+      {
+        $project:{
+          "assignee":1,
+          "category":1,
+          "createdAt": 1,
+          "description": 1,
+          "submitted_by": 1,
+          "ticket_number": 1,
+          "updatedAt": 1,
+          "_id":1,
+          "priority": {
+            $cond: { 
+              if : { 
+                $eq :['$priority', 1]
+              }, then: 'Low', else: {
+                $cond: {
+                  if : {
+                    $eq: ['$priority',2]
+                  },then: 'Medium', else: 'High'
+                }
+              }
+            }
+          },
+          "status": {
+            $cond: { 
+              if : { 
+                $eq :['$status', 1]
+              }, then: 'Pending', else: {
+                $cond: {
+                  if : {
+                    $eq: ['$status',2]
+                  },then: 'In-progress', else: 'Completed'
+                }
+              }
+            }
+          }
+        }        
+      }
     ]
     
     const total_tickets =  (await Ticket.aggregate(pipeline)).length
