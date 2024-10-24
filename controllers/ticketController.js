@@ -21,6 +21,7 @@ console.log(req.query.status)
       {"ticket_number":{$regex: req.query.search, $options: 'i'  }},
       { "description": {$regex: req.query.search, $options: 'i'  } },
       { "category": {$regex: req.query.search, $options: 'i' } },
+      { "submitted_by.email":{$regex: req.query.search, $options: 'i'  }}
     ]
   }
 
@@ -97,7 +98,7 @@ console.log(req.query.status)
   //Push Match Operator when arrAndOptFilter is not empyty
   arrAndOptFilters.length && pipeline.push(matchOpt) 
 
-
+  console.log(pipeline)
   pipeline.push(projectOpt)
   //Fetch data count before applying limit and skip
   const total_tickets = (await Ticket.aggregate(pipeline)).length
@@ -311,6 +312,31 @@ const dashboardData = async (req,res) => {
   }
 }
 
+async function findUser (req, res) {
+  console.log('hee')
+  try {
+    
+    const tickets = await Ticket.aggregate([
+      {
+        $lookup: {
+          "from": "users",     
+          "localField": "submitted_by",     
+          "foreignField": "_id",     
+          "as": "user" 
+        }
+      },
+      {
+        $match: {"user.email":{$regex: 'jer', $options: 'i'  }}
+      }
+    ])
+  
+    res.status(200).send(tickets)
+  } catch (error) {
+    console.log(error)
+    res.status(500).send({message: 'Error while fetching data.'})
+  }
+}
+
 export  {
   getTickets,
   getTotalTickets,
@@ -318,5 +344,6 @@ export  {
   getTicketID,
   updateTicket,
   getDevTickets,
-  dashboardData
+  dashboardData,
+  findUser
 }

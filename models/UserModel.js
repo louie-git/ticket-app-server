@@ -14,12 +14,21 @@ const userSchema = new Schema({
   },
   designation: {
     type: String,
-    required: true
+    default: 'End User'
   },
   email: {
     type: String,
+    required: true,
+    unique: true
+  },
+  password: {
+    type: String,
     required: true
   },
+  status: {
+    type: Number,
+    default: 0
+  }
 },{timestamps: true})
 
 

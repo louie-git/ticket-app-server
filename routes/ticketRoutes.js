@@ -13,6 +13,8 @@ router.get('/total',ticketController.getTotalTickets)
 router.route('/dashboard')
 .get(ticketController.dashboardData)
 
+router.get('/aggregate', ticketController.findUser)
+
 router.route('/:id')
 .get(ticketController.getTicketID)
 .post(ticketController.updateTicket)
