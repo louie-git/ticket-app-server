@@ -2,6 +2,16 @@ import mongoose from "mongoose";
 
 const Schema = mongoose.Schema
 
+// const messagesSchema = new Schema({
+//   created_by: {
+//     type: Schema.Types.ObjectId,
+//     ref: 'User'
+//   },
+//   message: {
+//     type: String,
+//     default: ''
+//   }
+// },{timestamps: true})
 
 const ticketSchema = new Schema({
   ticket_number: {
@@ -31,7 +41,9 @@ const ticketSchema = new Schema({
   priority: {
     type: Number,
     default: ''
-  }
+  },
+  // messages: [messagesSchema],
+  
   
 },{ timestamps:true })
 

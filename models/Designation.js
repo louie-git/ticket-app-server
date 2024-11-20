@@ -3,15 +3,14 @@ import mongoose from 'mongoose'
 
 const Schema = mongoose.Schema
 
-
-const categorySchema = new Schema ({
-  name: {
-    type: String,
-    required: true
-  },
+const designationSchema = new Schema({
   key: {
     type: Number,
-    required: true
+    require: true
+  },
+  name: {
+    type: String,
+    require: true
   },
   is_active:{
     type: Boolean,
@@ -19,4 +18,4 @@ const categorySchema = new Schema ({
   }
 }, {timestamps: true})
 
-export default mongoose.model('Category', categorySchema)
+export default mongoose.model('Designation', designationSchema)

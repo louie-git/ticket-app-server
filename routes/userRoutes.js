@@ -1,4 +1,5 @@
 import express from 'express'
+import { verifyAdmin } from '../middleware/auth.js'
 
 
 import * as userController from '../controllers/userController.js'
@@ -6,24 +7,24 @@ const router = express.Router()
 
 
 router.route('/')
-.get(userController.getUsers)
-.post(userController.createUser)
+.get(verifyAdmin, userController.getUsers)
+.post(verifyAdmin, userController.createUser)
 
-router.route('/sign-in')
-.get(userController.registerUser)
+// router.route('/sign-in')
+// .get(userController.registerUser)
 
 router.route('/change-password')
 .get(userController.changePassword)
 
 router.route('/developers')
-.get(userController.getDevs)
+.get(verifyAdmin, userController.getDevs)
 
 router.route('/:id')
-.get(userController.getUserById)
+.get(verifyAdmin, userController.getUserById)
 
 
 
 router.route('/:id/status')
-.post(userController.updateStatus)
+.post(verifyAdmin, userController.updateStatus)
 
 export default router

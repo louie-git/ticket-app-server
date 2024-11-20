@@ -8,7 +8,7 @@ import { hashPassword, comparePassword } from '../general/bcrypt.js'
 
 async function getUsers (req, res) {
   // const users = await User.find().exec()
-  // res.status(200).send(users)
+  // return res.status(500).send({message: 'error while fetching users'})
   try {
     console.log(req.query)
     const limit = 5
@@ -29,7 +29,7 @@ async function getUsers (req, res) {
     const projectOpt = {
       $project: {
         "email" : 1,
-        "designation": 1,
+        "designation": `$designation.name`,
         "full_name" : {$concat : ['$first_name', " ", "$last_name"]},
         "last_name": 1,
         "first_name": 1,
@@ -42,9 +42,25 @@ async function getUsers (req, res) {
           $cond: { 
             if : { 
               $eq :['$status', 1]
-            }, then: 'Confirmed', else: 'Pending'
+            }, then: {key: 1, name: 'Active'}, else: {key: 0, name: 'Inactive'}
           }
         }
+      }
+    }
+
+    const lookupOpt = {
+      $lookup : {
+        'from': 'designations',
+        'localField': 'designation',
+        'foreignField': 'key',
+        'as': 'designation'
+      }
+    }
+
+    const unwindOpt = {
+      $unwind: {
+        path: '$designation',
+        preserveNullAndEmptyArrays: true
       }
     }
   
@@ -54,7 +70,7 @@ async function getUsers (req, res) {
   
     req.query.search && pipeline.push(matchOpt)
   
-    pipeline.push(projectOpt)
+    pipeline.push(lookupOpt,unwindOpt,projectOpt)
 
     const total_users = (await User.aggregate(pipeline)).length
     
@@ -78,37 +94,56 @@ async function getUsers (req, res) {
 async function getDevs (req, res) {
   // const users = await User.find().exec()
   // res.status(200).send(users)
-
-  req.query.search = req.query.search ? req.query.search.toString() : ''
-
-  const pipeline = []
-
-  const matchOpt = {
-    $match: {
-      $or: [
-        { 'email': {$regex: req.query.search, $options: 'i'  } },
-        { 'first_name': {$regex: req.query.search, $options: 'i'  } },
-        { 'last_name': {$regex: req.query.search, $options: 'i' } },
-      ],
-      'designation' : 'Back-end Developer'
-    },
-  }
-
-  const projectOpt = {
-    $project: {
-      "email" : 1,
-      "designation": 1,
-      "full_name" : {$concat : ['$first_name', " ", "$last_name"]}
+  try {
+    req.query.search = req.query.search ? req.query.search.toString() : ''
+    const pipeline = []
+  
+    const matchOpt = {
+      $match: {
+        $or: [
+          { 'email': {$regex: req.query.search, $options: 'i'  } },
+          { 'first_name': {$regex: req.query.search, $options: 'i'  } },
+          { 'last_name': {$regex: req.query.search, $options: 'i' } },
+        ],
+        'designation': { $ne: 1}     
+      },
     }
+  
+    const projectOpt = {
+      $project: {
+        "email" : 1,
+        "designation": `$designation.name`,
+        "full_name" : {$concat : ['$first_name', " ", "$last_name"]}
+      }
+    }
+  
+  
+    
+    const lookupOpt = {
+      $lookup : {
+        'from': 'designations',
+        'localField': 'designation',
+        'foreignField': 'key',
+        'as': 'designation'
+      }
+    }
+  
+    const unwindOpt = {
+      $unwind: {
+        path: '$designation',
+        preserveNullAndEmptyArrays: true
+      }
+    }
+  
+    pipeline.push(matchOpt, lookupOpt, unwindOpt, projectOpt)
+  
+    const users = await User.aggregate(pipeline)
+  
+    res.status(200).send(users)
+  } catch (error) {
+    res.status(500).send({message: 'Error while fetching developers.'})
   }
-
-  pipeline.push(matchOpt)
-  pipeline.push(projectOpt)
-
-  console.log(pipeline)
-  const users = await User.aggregate(pipeline)
-
-  res.status(200).send(users)
+  
 }
 
 
@@ -117,10 +152,6 @@ async function createUser (req, res) {
   
   try {
     await User.create({
-      // first_name: 'Vincent Louie',
-      // last_name: 'Arrabis',
-      // designation: 'Back-end Developer',
-      // email: 'vincentla@meditab.com'
       first_name: req.body.first_name,
       last_name: req.body.last_name,
       designation: 'Back-end Developer',
@@ -234,9 +265,13 @@ async function getUserById (req,res) {
 
 async function updateStatus(req,res) {
 
+
   try {
     // throw 'd'
-    await User.findByIdAndUpdate(req.params.id, {'status': req.body.status})
+    await User.findByIdAndUpdate(req.params.id, {
+      'status': req.body.status,
+      'designation': req.body.designation
+    })
     res.status(200).json({message: 'Status updated successfully.'})
   } catch (error) {
     res.status(500).json({message: 'Error while updating status'})
@@ -254,7 +289,7 @@ async function registerUser(req,res) {
   const emailVerify = /@./
   const stringCheck= /^[a-zA-Z]+$/
 
-  let text = 'vincentlameditabcom'
+  let text = ''
   console.log(emailVerify.test(text))
   console.log(stringCheck.test(text))
 
@@ -311,7 +346,7 @@ async function changePassword ( req,res )  {
     if(password.length < 8) return res.status(400).send({message: 'Password must have 8 characters.'})
     if(password !== confirm_password) return res.status(400).send({message: 'Password not match.'})
 
-    const user = await User.findById('6719e2ce4df514e932aaf0bd')
+    const user = await User.findById('668bd0c28a525beeaf38c760')
     const confirmed = await comparePassword(password, user.password)
     
     if(!confirmed) return res.status(401).send({message: 'Incorrect password.'})

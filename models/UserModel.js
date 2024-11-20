@@ -13,8 +13,8 @@ const userSchema = new Schema({
     required: true
   },
   designation: {
-    type: String,
-    default: 'End User'
+    type: Number,
+    default: 1
   },
   email: {
     type: String,
@@ -28,6 +28,14 @@ const userSchema = new Schema({
   status: {
     type: Number,
     default: 0
+  },
+  refreshToken: {
+    type: String,
+    default: ''
+  },
+  isAdmin: {
+    type: Boolean,
+    default: false
   }
 },{timestamps: true})
 

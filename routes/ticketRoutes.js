@@ -1,26 +1,31 @@
 import express from "express";
+import { verifyAdmin } from '../middleware/auth.js'
 import * as ticketController  from '../controllers/ticketController.js'
 
 const router = express.Router()
 
 
 router.route('/')
-.get(ticketController.getTickets)
+.get( verifyAdmin, ticketController.getTickets)
 .post(ticketController.postTicket)
 
-router.get('/total',ticketController.getTotalTickets)
+router.get('/total', verifyAdmin, ticketController.getTotalTickets)
 
 router.route('/dashboard')
-.get(ticketController.dashboardData)
+.get(verifyAdmin, ticketController.dashboardData)
+
+router.get('/comment', verifyAdmin, ticketController.postMessage)
 
 router.get('/aggregate', ticketController.findUser)
 
+router.get('/my-tickets', ticketController.myTickets)
+
 router.route('/:id')
 .get(ticketController.getTicketID)
-.post(ticketController.updateTicket)
+.post(verifyAdmin,ticketController.updateTicket)
 
 router.route('/user/:user_id')
-.get(ticketController.getDevTickets)
+.get(verifyAdmin, ticketController.getDevTickets)
 
 
 export default router
