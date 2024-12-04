@@ -406,8 +406,6 @@ async function postMessage (req, res) {
   console.log('comment')
   try {
 
-
-    
     await Ticket.updateOne(
       { _id: '668398ad3e509f4b0f47b2f2' },
       {

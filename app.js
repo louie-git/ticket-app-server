@@ -29,7 +29,7 @@ const corsOptions = {
   optionsSuccessStatus: 200
 }
 
-
+console.log(process.argv.slice(2))
 app.use(cors(corsOptions))
 
 app.use('/api', authorizeUser, mainRouter)

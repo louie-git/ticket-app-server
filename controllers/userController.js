@@ -3,6 +3,7 @@ import User from '../models/UserModel.js'
 import Ticket from '../models/TicketModel.js'
 import { Types }  from 'mongoose'
 import { hashPassword, comparePassword } from '../general/bcrypt.js'
+import { priorityCond, statusCond } from '../general/dbMethods.js';
 
 
 
@@ -95,7 +96,12 @@ async function getDevs (req, res) {
   // const users = await User.find().exec()
   // res.status(200).send(users)
   try {
+
+    console.log(req.query)
     req.query.search = req.query.search ? req.query.search.toString() : ''
+
+    const page = req.query.page ? req.query.page : 1;
+    const limit = req.query.limit ? req.query.limit : 5;
     const pipeline = []
   
     const matchOpt = {
@@ -105,7 +111,7 @@ async function getDevs (req, res) {
           { 'first_name': {$regex: req.query.search, $options: 'i'  } },
           { 'last_name': {$regex: req.query.search, $options: 'i' } },
         ],
-        'designation': { $ne: 1}     
+        'designation': { $in: [2,3] }     
       },
     }
   
@@ -113,12 +119,14 @@ async function getDevs (req, res) {
       $project: {
         "email" : 1,
         "designation": `$designation.name`,
-        "full_name" : {$concat : ['$first_name', " ", "$last_name"]}
+        "full_name" :{$concat : ['$first_name', " ", "$last_name"]},
+        "designation": 1,
+        "pending": 1,
+        "in-progress": 1,
+        "completed": 1,
       }
     }
   
-  
-    
     const lookupOpt = {
       $lookup : {
         'from': 'designations',
@@ -134,18 +142,65 @@ async function getDevs (req, res) {
         preserveNullAndEmptyArrays: true
       }
     }
+
+    const ticketLookUp = {
+      $lookup : {
+        'from': 'tickets',
+        'localField': '_id',
+        'foreignField': 'assignee',
+        'as': 'assigned_tickets'
+      }
+    }
+
+    const ticketUnwind = {
+      $unwind: {
+        path: "$assigned_tickets",
+        preserveNullAndEmptyArrays: true
+      }
+    }
+    
+    const ticketGroup = {
+      $group: {
+        _id: "$_id",
+        "first_name": {$first: '$first_name'},
+        "last_name": {$first: '$last_name'},
+        "email": {$first: '$email'},
+        "designation": {$first: '$designation.name'},
+        "pending": {
+          $sum: {
+            $cond: [{ $eq: ["$assigned_tickets.status", 1] }, 1, 0]
+          }
+        },
+        "in-progress": {
+           $sum: {
+             $cond: [{ $eq: ["$assigned_tickets.status", 2] }, 1, 0]
+           }
+         },
+        "completed": {
+          $sum: {
+            $cond: [{ $eq: ["$assigned_tickets.status", 3] }, 1, 0]
+          }
+        },
+      }
+    }
+
+    const skipOpt =  { $skip:  (limit *  (page - 1)) }
   
-    pipeline.push(matchOpt, lookupOpt, unwindOpt, projectOpt)
+    const limitOpt = { $limit: limit }
+
+    pipeline.push(matchOpt, lookupOpt, unwindOpt, ticketLookUp, ticketUnwind, ticketGroup, projectOpt)
+
+    const total_devs = (await User.aggregate(pipeline)).length
+    pipeline.push(skipOpt, limitOpt)
+
+    const developers = await User.aggregate(pipeline)
   
-    const users = await User.aggregate(pipeline)
-  
-    res.status(200).send(users)
+    res.status(200).send({developers, total_devs})
   } catch (error) {
-    res.status(500).send({message: 'Error while fetching developers.'})
+    res.status(500).send({message: 'Error while fetching developers.', error: error.message})
   }
   
 }
-
 
 async function createUser (req, res) {
 
@@ -165,7 +220,7 @@ async function createUser (req, res) {
 
 
 async function getUserById (req,res) {
-  console.log(req.query)
+  console.log('here',req.query)
 
 
 
@@ -208,42 +263,53 @@ async function getUserById (req,res) {
           $and: [...arrAndOptFilters]
         }
       },
+      // {
+      //   $unwind: {
+      //     path: '$tickets',
+      //     preserveNullAndEmptyArrays: true
+      //   }
+      // },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'submitted_by',
+          foreignField: '_id',
+          as: 'submitted_by'
+        }
+      },
+      {
+        $unwind: {
+          path: '$submitted_by',
+          preserveNullAndEmptyArrays: true
+        }
+      },
+      {
+        $lookup: {
+          from: 'categories',
+          localField: 'category',
+          foreignField: 'key',
+          as: 'category'
+        }
+      },
+      {
+        $unwind: {
+          path: '$category',
+          preserveNullAndEmptyArrays: true
+        }
+      },
       {
         $project:{
           "assignee":1,
-          "category":1,
+          "category":"$category.name",
           "createdAt": 1,
           "description": 1,
           "submitted_by": 1,
           "ticket_number": 1,
           "updatedAt": 1,
+          "submitted_by": {"email": 1},
           "_id":1,
-          "priority": {
-            $cond: { 
-              if : { 
-                $eq :['$priority', 1]
-              }, then: 'Low', else: {
-                $cond: {
-                  if : {
-                    $eq: ['$priority',2]
-                  },then: 'Medium', else: 'High'
-                }
-              }
-            }
-          },
-          "status": {
-            $cond: { 
-              if : { 
-                $eq :['$status', 1]
-              }, then: 'Pending', else: {
-                $cond: {
-                  if : {
-                    $eq: ['$status',2]
-                  },then: 'In-progress', else: 'Completed'
-                }
-              }
-            }
-          }
+          "priority": priorityCond,
+          "status": statusCond
         }        
       }
     ]
@@ -337,19 +403,19 @@ async function changePassword ( req,res )  {
   
   try {
     // const {_id, password, confirm_password} = req.body
-  
-    let password = 'asdfAsdf!'
-    let confirm_password = 'asdfAsdf!'
+    let current_password = req.body.current_password
+    let password = req.body.password
+    let confirm_password = req.body.confirm_password
 
     if(!format.test(password)) return res.status(400).send({message: 'Password must have special characters.'})
     if(!uppercaseFormat.test(password)) return res.status(400).send({message: 'Password must have uppercase.'})
     if(password.length < 8) return res.status(400).send({message: 'Password must have 8 characters.'})
     if(password !== confirm_password) return res.status(400).send({message: 'Password not match.'})
 
-    const user = await User.findById('668bd0c28a525beeaf38c760')
-    const confirmed = await comparePassword(password, user.password)
-    
-    if(!confirmed) return res.status(401).send({message: 'Incorrect password.'})
+    const user = await User.findById(req.user._id)
+
+    const confirmed = await comparePassword(current_password, user.password)
+    if(!confirmed) return res.status(403).send({message: 'Incorrect password.'})
   
     let hashedPassword = await hashPassword(password)
     if(!hashedPassword.success) return res.status(500).send({message: 'Error while hashing password.'})

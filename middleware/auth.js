@@ -18,7 +18,7 @@ const fnRefreshToken = async (req, res) => {
 
   jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET, async (err, decoded) => {
     if(err) {
-      res.status(400).send({message: 'Unauthorized'})
+      res.status(401).send({message: 'Unauthorized'})
       return
     }
     const accessToken = generateAccessToken(decoded.id)

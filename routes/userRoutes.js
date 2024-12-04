@@ -14,14 +14,13 @@ router.route('/')
 // .get(userController.registerUser)
 
 router.route('/change-password')
-.get(userController.changePassword)
+.post(userController.changePassword)
 
 router.route('/developers')
 .get(verifyAdmin, userController.getDevs)
 
 router.route('/:id')
 .get(verifyAdmin, userController.getUserById)
-
 
 
 router.route('/:id/status')
