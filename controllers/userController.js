@@ -360,8 +360,6 @@ async function registerUser(req,res) {
   console.log(stringCheck.test(text))
 
 
-  return res.send({message: 'Testing only.'})
-
   try {
     const { 
       first_name,

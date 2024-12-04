@@ -60,8 +60,12 @@ const authenticateUser = async ( req, res ) => {
           'full_name': {
             $concat: ['$first_name', ' ', '$last_name']
           },
-          'designation': '$designation.name',
+          'designation': {
+            name: '$designation.name',
+            key: '$designation.key'
+          },
           'email': 1,
+          'status': 1,
           'createdAt': {
             $dateToString : {
               format: "%Y-%m-%d", date: "$createdAt"
@@ -81,7 +85,8 @@ const authenticateUser = async ( req, res ) => {
     // await user.save()
     delete user['password']
     let routes = []
-    if(user.designation !== 1){
+    console.log('fsdf',user.designation)
+    if(user.designation.key !== 1){
       routes = [
         {
           path:'/dashboard',
@@ -143,6 +148,7 @@ const authorizeUser = async (req, res, next) => {
     }
     const user_id = decoded.id
     const user = await User.findById(user_id)
+    if(user.status === 0 ) return res.status(401).send({message: 'Unauthorized. Account dissabled by the admin.'})
     req.user = user
     next()
   })
@@ -171,10 +177,12 @@ const logout = (req, res) => {
 }
 
 
+
+
 export {
   authenticateUser,
   authorizeUser,
   fnRefreshToken,
   verifyAdmin,
-  logout
+  logout,
 }
