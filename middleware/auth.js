@@ -148,6 +148,7 @@ const authorizeUser = async (req, res, next) => {
     }
     const user_id = decoded.id
     const user = await User.findById(user_id)
+    if(!user) return res.status(401).send({message: 'Unauthorized. User not found.'})
     if(user.status === 0 ) return res.status(401).send({message: 'Unauthorized. Account dissabled by the admin.'})
     req.user = user
     next()

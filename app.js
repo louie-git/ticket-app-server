@@ -10,8 +10,12 @@ import mainRouter from './routes/mainRouter.js'
 import authRoutes from './routes/authRoutes.js'
 
 
+//Seeder
+import UserSeeder from './seeder/UserSeeder.js'
+import DesignationSeeder from './seeder/DesignationSeeder.js'
+
 const app = express()
-const port = process.env.PORT ? process.env.PORT : 8002
+const port = process.env.PORT || 8002
 
 dbConnect()
 
@@ -28,6 +32,12 @@ const corsOptions = {
   credentials: true,
   optionsSuccessStatus: 200
 }
+
+if(process.argv.slice(2).includes('-production')){
+  UserSeeder()
+  DesignationSeeder()
+}
+
 
 console.log(process.argv.slice(2))
 app.use(cors(corsOptions))
