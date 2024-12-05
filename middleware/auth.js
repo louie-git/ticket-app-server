@@ -34,10 +34,13 @@ const fnRefreshToken = async (req, res) => {
 const authenticateUser = async ( req, res ) => {
 
   try {
-    console.log(req.body)
     const user = await User.aggregate([
       {
-        $match: {email: req.body.email}
+        $match: {
+          'email': {
+            $regex: req.body.email, $options: 'i'
+          }
+        }
       },
       {
         $lookup: {
