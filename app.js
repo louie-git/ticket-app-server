@@ -27,7 +27,7 @@ app.use(express.urlencoded({extended : false}))
 //Content Policy
 
 const corsOptions = {
-  origin: 'http://localhost:3000',
+  origin: process.env.CLIENT_ORIGIN,
   preflightContinue: false,
   credentials: true,
   optionsSuccessStatus: 200
