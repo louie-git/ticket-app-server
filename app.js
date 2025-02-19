@@ -41,6 +41,7 @@ if(process.argv.slice(2).includes('-production')){
 
 console.log(process.argv.slice(2))
 app.use(cors(corsOptions))
+app.use('/api/uploads', (req, res,next) => next(), express.static('uploads'))
 
 app.use('/api', authorizeUser, mainRouter)
 

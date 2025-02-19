@@ -1,13 +1,20 @@
 import Ticket from '../models/TicketModel.js'
 import mongoose from 'mongoose';
 import { priorityCond, statusCond } from '../general/dbMethods.js';
+import fs from 'fs'
+import { fileURLToPath } from 'url';
+import path, {dirname} from 'path'
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
 
 async function getTickets(req,res){
 
   // return res.status(500).send({message: 'Error while fetching tickets'})
 
-  const limit = 5
-  const page = req.query.page ? req.query.page : 1
+  const limit = 5;
+  const page = req.query.page ? req.query.page : 1;
 
   // console.log(req.query.status)
   // console.log(page,req.query.status)
@@ -122,29 +129,44 @@ async function getTotalTickets (req,res) {
 
 async function postTicket (req,res) {
   // return res.status(400).send({message: 'Error while uploading'})
+  console.log('hererrere',req.body)
   try {
+    if(!req.body.category) throw new Error('Category is required.')
     //creates the leading '000' in the ticket Number
     const ticketCount = await Ticket.find({}).count()
     const pad = '000000'
     let ticket_number = pad.substring( ticketCount.toString().length ) + (ticketCount + 1)
     
+    let files = !req.files ? '' : req.files.map(file => {
+      return {
+        name: file.filename,
+        url: `uploads/${file.filename}`
+      }
+    });
+
     const ticket = new Ticket({
       ticket_number,
       category: req.body.category,
       description: req.body.description,
-      submitted_by:  req.user._id
+      submitted_by:  req.user._id,
+      files: files
     })
 
     await ticket.save()
     res.status(200).json({message: 'Ticket uploaded'})
   } catch (error) {
     // console.log(error)
-    res.status(400).json({message: 'Failed to create tickets'})
+    if(req.files) {
+      req.files.forEach(file => {
+        fs.unlinkSync(path.join(__dirname, `../uploads/${file.filename}`))
+      })
+    }
+    console.log(error)
+    res.status(400).json({message: 'Failed to create tickets', error: error.message})
   }
 }
 
 async function getTicketID(req,res){
-
   try {
     const ticket = await Ticket.aggregate([
       {
@@ -214,6 +236,7 @@ async function getTicketID(req,res){
           "description": 1,
           "status": statusCond,
           "priority": priorityCond,
+          "files": 1,
           "createdAt": {
             $dateToString : {
               format: "%Y-%m-%d", date: "$createdAt"

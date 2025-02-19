@@ -34,6 +34,7 @@ const fnRefreshToken = async (req, res) => {
 const authenticateUser = async ( req, res ) => {
 
   try {
+    if (!req.body.email || !req.body.password) return res.status(401).send({message: 'Please input credentials'})
     const user = await User.aggregate([
       {
         $match: {

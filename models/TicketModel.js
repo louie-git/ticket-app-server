@@ -13,6 +13,17 @@ const Schema = mongoose.Schema
 //   }
 // },{timestamps: true})
 
+const filesSchema = new Schema({
+  name: {
+    type: String,
+    default: ''
+  },
+  url: {
+    type: String,
+    default: ''
+  }
+})
+
 const ticketSchema = new Schema({
   ticket_number: {
     type: String,
@@ -42,6 +53,7 @@ const ticketSchema = new Schema({
     type: Number,
     default: ''
   },
+  files: [filesSchema ]
   // messages: [messagesSchema],
   
   
