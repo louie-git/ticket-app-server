@@ -14,7 +14,7 @@ const transporter = nodemailer.createTransport({
 
 export default ({to,html}) => {
   transporter.sendMail({
-    to: 'vlarrabis@gmail.com',
+    to: to,
     subject: 'Email Password Reset',
     html,
   }).then(() => {
