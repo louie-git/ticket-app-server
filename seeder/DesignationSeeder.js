@@ -5,6 +5,7 @@ const seed = async () => {
   //add validation here
 
   try {
+    if((await (Designation.find())).length > 0) return
     await Designation.create([
       {
         key: 10,

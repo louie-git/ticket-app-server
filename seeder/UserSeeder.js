@@ -7,9 +7,8 @@ import { hashPassword } from "../general/bcrypt.js";
 const seed = async () => {
 
   try {
-
     //add validation here
-
+    if((await User.find()).length > 0) return
     const hashedPassword = await hashPassword('Testing123!')
 
     await User.create({

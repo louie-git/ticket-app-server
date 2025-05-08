@@ -128,8 +128,8 @@ async function getTotalTickets (req,res) {
 }
 
 async function postTicket (req,res) {
-  // return res.status(400).send({message: 'Error while uploading'})
   console.log('hererrere',req.body)
+  if(req.body.category === 'undefined') console.log('hfdldsf');
   try {
     if(!req.body.category) throw new Error('Category is required.')
     //creates the leading '000' in the ticket Number

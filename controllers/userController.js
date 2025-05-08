@@ -4,8 +4,9 @@ import Ticket from '../models/TicketModel.js'
 import { Types }  from 'mongoose'
 import { hashPassword, comparePassword } from '../general/bcrypt.js'
 import { priorityCond, statusCond } from '../general/dbMethods.js';
-
-
+import crypto from 'crypto'
+import generateResetEmail from '../mailTemplates/resetPasswordTemplate.js';
+import mailer from '../mailer/mailer.js'
 
 async function getUsers (req, res) {
   // const users = await User.find().exec()
@@ -427,6 +428,63 @@ async function changePassword ( req,res )  {
     res.status(500).send({message: 'Internal error'})
   }
 
+
+}
+async function resetPasswordRequest (req,res) {
+  console.log(req.body.email);
+
+  if(!req.body.email) return res.status(400).send({message: 'Email is required.'})
+  try {
+    const resetToken = crypto.randomBytes(32).toString('hex'); //sent to user
+    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex'); //stored in database.
+
+    const user = await User.findOne({email: req.body.email})
+
+    if(!user) return res.status(400).send({message: 'Email not found.'})
+
+    user.passwordResetToken = hashedToken;
+    user.passwordResetExpires = Date.now() + 15 * 60 * 1000; //this will be 15 minutes.
+
+    await user.save();
+
+    const html = generateResetEmail({username: user.first_name, resetLink: `${process.env.CLIENT_ORIGIN}/reset-password?token=${resetToken}`});
+
+    mailer({to: user.email, html})
+
+    res.status(200).send({message: 'Reset email sent.'});
+  } catch (error) {
+    res.status(500).send({message: 'Internal Error', error: error.message});
+  }
+}
+
+async function resetPassword (req, res) {
+  
+  try {
+
+    if(!req.body.password || !req.body.confirm_password) return res.status(400).send({message: 'Password is required.'}) 
+    const token = req.query.token
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex'); //stored in database.
+  
+    const user = await User.findOne({
+      passwordResetToken: hashedToken,
+      passwordResetExpires: {$gt: Date.now()}
+    })
+    
+    if(!user) return res.status(400).send({message: 'Token is invalid or expired.'});
+    
+
+    const hashedPassword = await hashPassword(req.body.password)
+
+    user.password = hashedPassword.hash
+    user.passwordResetExpires=null
+    user.passwordResetToken=null
+
+    await user.save()
+    
+    res.status(200).send({message: 'Password updated successfully.'})
+  } catch (error) {
+    res.status(500).send({message: 'Internal Error', error: error.message})
+  }
 }
 
 export {
@@ -436,6 +494,8 @@ export {
   getUserById,
   updateStatus,
   registerUser,
-  changePassword
+  changePassword,
+  resetPasswordRequest,
+  resetPassword
 }
 

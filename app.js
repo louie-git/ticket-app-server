@@ -4,7 +4,7 @@ import dbConnect from './config/db.js';
 import cors from 'cors'
 import 'dotenv/config'  // require('dotenv).config()
 import { authorizeUser } from './middleware/auth.js';
-
+import { resetPasswordRequest, resetPassword } from './controllers/userController.js';
 //Routers
 import mainRouter from './routes/mainRouter.js'
 import authRoutes from './routes/authRoutes.js'
@@ -43,6 +43,8 @@ console.log(process.argv.slice(2))
 app.use(cors(corsOptions))
 app.use('/api/uploads', (req, res,next) => next(), express.static('uploads'))
 
+app.post('/api/reset_password_request', resetPasswordRequest)
+app.post('/api/reset_password', resetPassword)
 app.use('/api', authorizeUser, mainRouter)
 
 app.use('/auth', authRoutes)
